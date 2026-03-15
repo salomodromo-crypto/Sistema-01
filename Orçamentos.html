@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Orçamento - E.S Informática</title>
+
+<style>
+body{
+    font-family:"Segoe UI", Arial, sans-serif;
+    background:#f1f5f9;
+    margin:0;
+    padding:20px;
+}
+
+.container{
+    max-width:1100px;
+    margin:auto;
+    background:white;
+    padding:30px;
+    border-radius:12px;
+    box-shadow:0 15px 40px rgba(0,0,0,0.1);
+}
+
+h1{
+    text-align:center;
+    margin-bottom:30px;
+}
+
+input, textarea{
+    width:100%;
+    padding:8px;
+    margin-top:5px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+button{
+    padding:8px 14px;
+    margin-top:8px;
+    border:none;
+    border-radius:6px;
+    background:#0f172a;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+    margin-right:5px;
+}
+
+button:hover{
+    background:#1e293b;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:10px;
+}
+
+th, td{
+    border:1px solid #ccc;
+    padding:6px;
+    text-align:center;
+}
+
+th{
+    background:#f8fafc;
+}
+
+#orcamentoFinal{
+    display:none;
+}
+
+.documento{
+    width:210mm;
+    min-height:297mm;
+    padding:20mm;
+    background:white;
+    font-size:13px;
+}
+
+.header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    border-bottom:2px solid #000;
+    padding-bottom:10px;
+}
+
+.header img{
+    max-height:80px;
+}
+
+.empresa-info{
+    font-size:12px;
+    margin-top:5px;
+}
+
+.titulo{
+    text-align:center;
+    font-size:18px;
+    font-weight:bold;
+    margin:20px 0;
+}
+
+.total{
+    text-align:right;
+    font-size:16px;
+    font-weight:bold;
+    margin-top:15px;
+}
+
+.rodape{
+    margin-top:60px;
+    display:flex;
+    justify-content:space-between;
+}
+
+@media print{
+    body *{
+        visibility:hidden;
+    }
+    .documento, .documento *{
+        visibility:visible;
+    }
+    .documento{
+        position:absolute;
+        left:0;
+        top:0;
+    }
+    @page{
+        size:A4;
+        margin:0;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>Gerador de Orçamento - E.S Informática</h1>
+
+<label>Cliente:</label>
+<input type="text" id="cliente">
+
+<label>Telefone:</label>
+<input type="text" id="telefone">
+
+<label>Equipamento:</label>
+<input type="text" id="equipamento">
+
+<label>Validade (dias):</label>
+<input type="number" id="validade" value="7">
+
+<hr>
+
+<h3>Itens do Orçamento</h3>
+
+<table id="tabelaItens">
+<thead>
+<tr>
+<th>Descrição</th>
+<th>Qtd</th>
+<th>Valor Unitário</th>
+<th>Total</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<button onclick="adicionarItem()">Adicionar Item</button>
+
+<br><br>
+
+<label>Observações:</label>
+<textarea id="observacoes"></textarea>
+
+<br>
+
+<button onclick="gerarOrcamento()">Gerar Documento</button>
+<button onclick="imprimir()">Salvar PDF</button>
+
+</div>
+
+<div id="orcamentoFinal"></div>
+
+<script>
+
+function escaparHTML(texto){
+    return texto
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+function adicionarItem(){
+    const tbody=document.querySelector("#tabelaItens tbody");
+
+    const row=document.createElement("tr");
+
+    row.innerHTML=`
+    <td><input type="text" class="desc"></td>
+    <td><input type="number" class="qtd" value="1" min="1"></td>
+    <td><input type="number" class="valor" step="0.01" value="0"></td>
+    <td class="totalItem">R$ 0,00</td>
+    <td><button onclick="removerItem(this)">X</button></td>
+    `;
+
+    tbody.appendChild(row);
+    atualizarEventos();
+}
+
+function removerItem(btn){
+    btn.closest("tr").remove();
+    calcularTotal();
+}
+
+function atualizarEventos(){
+    document.querySelectorAll(".qtd, .valor").forEach(input=>{
+        input.oninput=calcularTotal;
+    });
+}
+
+function calcularTotal(){
+    let total=0;
+
+    document.querySelectorAll("#tabelaItens tbody tr").forEach(row=>{
+        const qtd=row.querySelector(".qtd").value;
+        const valor=row.querySelector(".valor").value;
+        const subtotal=qtd*valor;
+
+        row.querySelector(".totalItem").innerText=
+            subtotal.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+
+        total+=subtotal;
+    });
+
+    return total;
+}
+
+function gerarOrcamento(){
+
+    const agora=new Date();
+    const numero="ORC-"+Date.now();
+    const data=agora.toLocaleDateString("pt-BR");
+
+    const cliente=escaparHTML(document.getElementById("cliente").value);
+    const telefone=escaparHTML(document.getElementById("telefone").value);
+    const equipamento=escaparHTML(document.getElementById("equipamento").value);
+    const validade=document.getElementById("validade").value;
+    const observacoes=escaparHTML(document.getElementById("observacoes").value);
+
+    let total=calcularTotal();
+    let totalFormatado=total.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+
+    let linhas="";
+
+    document.querySelectorAll("#tabelaItens tbody tr").forEach(row=>{
+        const desc=escaparHTML(row.querySelector(".desc").value);
+        const qtd=row.querySelector(".qtd").value;
+        const valor=row.querySelector(".valor").value;
+
+        linhas+=`
+        <tr>
+            <td>${desc}</td>
+            <td>${qtd}</td>
+            <td>${Number(valor).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</td>
+            <td>${(qtd*valor).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</td>
+        </tr>`;
+    });
+
+    const html=`
+    <div class="documento">
+
+    <div class="header">
+        <div>
+            <strong>E.S Informática</strong>
+            <div class="empresa-info">
+                CNPJ: 00.000.000/0000-00<br>
+                Endereço: Marcos Luis Badoco, 3344, Apt 32 - Franca - SP<br>
+                Telefone: (16) 98821-7736<br>
+                E-mail: edisamp.info@gmail.com
+            </div>
+        </div>
+        <img src="https://i.imgur.com/8P6OHcA.jpeg">
+    </div>
+
+    <div class="titulo">ORÇAMENTO Nº ${numero}</div>
+
+    <strong>Data:</strong> ${data}<br>
+    <strong>Cliente:</strong> ${cliente}<br>
+    <strong>Telefone:</strong> ${telefone}<br>
+    <strong>Equipamento:</strong> ${equipamento}<br>
+    <strong>Validade:</strong> ${validade} dias
+
+    <br><br>
+
+    <table>
+    <tr>
+        <th>Descrição</th>
+        <th>Qtd</th>
+        <th>Valor Unitário</th>
+        <th>Total</th>
+    </tr>
+    ${linhas}
+    </table>
+
+    <div class="total">TOTAL GERAL: ${totalFormatado}</div>
+
+    <br><br>
+    <strong>Observações:</strong><br>
+    ${observacoes || "Sem observações adicionais."}
+
+    <div class="rodape">
+        <div>_________________________<br><strong>Edilson Sampaio</strong><br>Técnico Responsável</div>
+        <div>_________________________<br>Assinatura do Cliente</div>
+    </div>
+
+    </div>
+    `;
+
+    const final=document.getElementById("orcamentoFinal");
+    final.innerHTML=html;
+    final.style.display="block";
+}
+
+function imprimir(){
+    if(!document.getElementById("orcamentoFinal").innerHTML.trim()){
+        alert("Gere o orçamento primeiro.");
+        return;
+    }
+    window.print();
+}
+
+adicionarItem();
+</script>
+
+</body>
+</html>
